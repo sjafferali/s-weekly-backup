@@ -1,0 +1,20 @@
+#!/bin/bash
+
+backup_server="home.samir.ninja"
+this_server=`uname -n`
+KEY_FILE="/opt/smods/backupdir/keys/backupkey"
+
+ssh -o ConnectTimeout=10 -i $KEY_FILE -p 2222 root@$backup_server "mkdir -pv /mnt/data/backups/servers/$this_server"
+
+(
+rsync -avzA --delete --bwlimit=500000 -e 'ssh -i $KEY_FILE -p 2222' /* root@$backup_server:/mnt/data/backups/servers/$this_server/ --exclude={/dev/*,/proc/*,/sys/*,/tmp/*,/run/*,/mnt/*,/media/*,/lost+found,/var/mysqltmp/*,/var/tmp/*} --timeout=60
+response="$?"
+if [ $response -eq "0" ]
+then
+        echo $response > /opt/smods/backupdir/last_backup_return
+        echo Filesystem backup completed for $this_server on `date` > /.backup_status
+else
+        echo $response > /opt/smods/backupdir/last_backup_return
+        echo "Filesystem backup completed (with errors) for $this_server on "`date` > /.backup_status
+fi
+) 2>&1 | awk '{ print strftime(), $0; fflush() }' | tee -a /opt/smods/backupdir/logs/rsync_filesystem.log
