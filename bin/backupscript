@@ -2,19 +2,22 @@
 
 backup_server="home.samir.ninja"
 this_server=`uname -n`
-KEY_FILE="/opt/smods/backupdir/keys/backupkey"
-
-ssh -o ConnectTimeout=10 -i $KEY_FILE -p 2222 root@$backup_server "mkdir -pv /mnt/data/backups/servers/$this_server"
+KEY_FILE="/opt/s-weekly-backup/keys/backupkey"
+DATE_DIR=$(date +%m_%d_%y)
+ssh -to ConnectTimeout=10 -i $KEY_FILE -p 2222 backupuser@$backup_server "sudo mkdir -pv /home/backups/servers/$this_server/$DATE_DIR" 2>&1 | awk '{ print strftime(), $0; fflush() }' | tee -a /opt/s-weekly-backup/logs/rsync_filesystem.log
 
 (
-rsync -avzA --delete --bwlimit=500000 -e "ssh -i $KEY_FILE -p 2222" /* root@$backup_server:/mnt/data/backups/servers/$this_server/ --exclude={/dev/*,/proc/*,/sys/*,/tmp/*,/run/*,/mnt/*,/media/*,/lost+found,/var/mysqltmp/*,/var/tmp/*} --timeout=60
+rsync -avzA --bwlimit=500000 -e "ssh -i $KEY_FILE -p 2222" --rsync-path="sudo rsync" --link-dest=/home/backups/servers/$this_server/current / backupuser@$backup_server:/home/backups/servers/$this_server/$DATE_DIR --exclude={/dev/*,/proc/*,/sys/*,/tmp/*,/run/*,/mnt/*,/media/*,/lost+found,/var/mysqltmp/*,/var/tmp/*} --timeout=60
 response="$?"
 if [ $response -eq "0" ]
 then
-        echo $response > /opt/smods/backupdir/last_backup_return
+        echo $response > /opt/s-weekly-backup/last_backup_return
         echo Filesystem backup completed for $this_server on `date` > /.backup_status
 else
-        echo $response > /opt/smods/backupdir/last_backup_return
+        echo $response > /opt/s-weekly-backup/last_backup_return
         echo "Filesystem backup completed (with errors) for $this_server on "`date` > /.backup_status
 fi
-) 2>&1 | awk '{ print strftime(), $0; fflush() }' | tee -a /opt/smods/backupdir/logs/rsync_filesystem.log
+) 2>&1 | awk '{ print strftime(), $0; fflush() }' | tee -a /opt/s-weekly-backup/logs/rsync_filesystem.log
+
+ssh -tto ConnectTimeout=10 -i $KEY_FILE -p 2222 backupuser@$backup_server "sudo rm -fv /home/backups/servers/$this_server/current ;sudo  ln -s /home/backups/servers/$this_server/$DATE_DIR /home/backups/servers/$this_server/current" 2>&1 | awk '{ print strftime(), $0; fflush() }' | tee -a /opt/s-weekly-backup/logs/rsync_filesystem.log
+
