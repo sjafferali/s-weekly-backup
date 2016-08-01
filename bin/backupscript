@@ -21,3 +21,4 @@ fi
 
 ssh -tto ConnectTimeout=10 -i $KEY_FILE -p 2222 backupuser@$backup_server "sudo rm -fv /home/backups/servers/$this_server/current ;sudo  ln -s /home/backups/servers/$this_server/$DATE_DIR /home/backups/servers/$this_server/current" 2>&1 | awk '{ print strftime(), $0; fflush() }' | tee -a /opt/s-weekly-backup/logs/rsync_filesystem.log
 
+ssh -tto ConnectTimeout=10 -i $KEY_FILE -p 2222 backupuser@$backup_server "sudo find /home/backups/servers/$this_server/ -maxdepth 1 -ctime +30 ! -name current -exec rm -frv {} \;" 2>&1 | awk '{ print strftime(), $0; fflush() }' | tee -a /opt/s-weekly-backup/logs/delete.log
