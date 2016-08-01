@@ -1,0 +1,7 @@
+#!/bin/bash
+
+backup_server="home.samir.ninja"
+this_server=`uname -n`
+KEY_FILE="/opt/s-weekly-backup/keys/backupkey"
+DATE_DIR=$(date +%m_%d_%y)
+ssh -to ConnectTimeout=10 -i $KEY_FILE -p 2222 root@$backup_server "cd /home/backups/servers/$this_server ; exec \$SHELL --login"
