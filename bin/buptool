@@ -1,0 +1,67 @@
+#!/bin/bash
+
+backup_server="home.samir.ninja"
+this_server=`uname -n`
+KEY_FILE="/opt/s-weekly-backup/keys/backupkey"
+DATE_DIR=$(date +%m_%d_%y)
+
+list_backups () {
+	echo -ne "\nCurrent Backup: "
+	ssh -qo ConnectTimeout=10 -i $KEY_FILE -p 2222 root@$backup_server "basename \$(readlink -f /home/backups/servers/$this_server/current)"
+	echo
+	echo == Backups Available ==
+	echo =======================
+	ssh -qo ConnectTimeout=10 -i $KEY_FILE -p 2222 root@$backup_server "find /home/backups/servers/$this_server -maxdepth 1 -mindepth 1 -type d | while read line ; do basename \$line ; done"
+	echo
+}
+
+restore_backup () {
+	if [[ -z $2 ]]
+	then
+		echo $(date +"%D %T")" No date passed using latest backup"
+		RESTORE_DATE="current"
+	else
+		echo $(date +"%D %T")" Using $2 for restore from date"
+		RESTORE_DATE=$2
+	fi
+
+	if [[ -z $1 ]]
+	then
+		echo $(date +"%D %T")" Need to pass path to restore"
+		exit 1
+	else
+	        echo $(date +"%D %T")" Using /home/backups/servers/$this_server/$RESTORE_DATE""$1 as restore directory"
+		RESTORE_DIR="/home/backups/servers/$this_server/$RESTORE_DATE""$1"
+	fi
+
+	RESTORE_TO="restored_"$(date +%s)
+	if (ssh -p 2222 -i $KEY_FILE root@$backup_server "[ ! -e $RESTORE_DIR ]")
+	then
+		echo $(date +"%D %T")" $RESTORE_DIR Not found on remote server"
+		exit 1
+	fi
+
+
+	echo $(date +"%D %T")" "$(mkdir -v $RESTORE_TO)
+	rsync -avzA --bwlimit=500000 -e "ssh -i $KEY_FILE -p 2222" --rsync-path="sudo rsync" backupuser@$backup_server:$RESTORE_DIR $RESTORE_TO/ --timeout=60 | while read line ; do echo $(date +"%D %T")" $line" ; done
+	echo $(date +"%D %T")" Restored to "$(readlink -f $RESTORE_TO)
+}
+
+
+if [[ $1 == "list" ]]
+then
+	list_backups
+	exit 0
+fi
+
+if [[ $1 == "restore" ]]
+then
+        restore_backup $2 $3
+	exit 0
+fi
+echo
+echo "Buptool"
+echo
+echo "Tool to restore backups"
+echo "Usage: buptool [list|restore] [file/directory] [date]"
+echo
